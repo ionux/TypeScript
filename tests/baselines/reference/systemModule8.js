@@ -32,6 +32,7 @@ for ([x] of [[1]]) {}
 
 //// [systemModule8.js]
 System.register([], function(exports_1) {
+    "use strict";
     var x, y, z0, z1;
     function foo() {
         exports_1("x", x = 100);
@@ -39,7 +40,6 @@ System.register([], function(exports_1) {
     return {
         setters:[],
         execute: function() {
-            exports_1("x", x);
             exports_1("x", x = 1);
             (exports_1("x", ++x) - 1);
             (exports_1("x", --x) + 1);
@@ -66,6 +66,6 @@ System.register([], function(exports_1) {
                 exports_1("x", x = _b[_i][0]);
             }
         }
-        var _a;
     }
+    var _a;
 });

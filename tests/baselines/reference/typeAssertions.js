@@ -46,8 +46,7 @@ someOther = <SomeOther>someOther;
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 // Function call whose argument is a 1 arg generic function call with explicit type arguments
 function fn1(t) { }
@@ -62,19 +61,19 @@ var SomeBase = (function () {
     function SomeBase() {
     }
     return SomeBase;
-})();
+}());
 var SomeDerived = (function (_super) {
     __extends(SomeDerived, _super);
     function SomeDerived() {
         _super.apply(this, arguments);
     }
     return SomeDerived;
-})(SomeBase);
+}(SomeBase));
 var SomeOther = (function () {
     function SomeOther() {
     }
     return SomeOther;
-})();
+}());
 // Type assertion should check for assignability in either direction
 var someBase = new SomeBase();
 var someDerived = new SomeDerived();

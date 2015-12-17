@@ -4,7 +4,7 @@
 /// <reference path='services.ts' />
 
 /* @internal */
-module ts.BreakpointResolver {
+namespace ts.BreakpointResolver {
     /**
      * Get the breakpoint span in given sourceFile
      */
@@ -16,7 +16,7 @@ module ts.BreakpointResolver {
 
         let tokenAtLocation = getTokenAtPosition(sourceFile, position);
         let lineOfPosition = sourceFile.getLineAndCharacterOfPosition(position).line;
-        if (sourceFile.getLineAndCharacterOfPosition(tokenAtLocation.getStart()).line > lineOfPosition) {
+        if (sourceFile.getLineAndCharacterOfPosition(tokenAtLocation.getStart(sourceFile)).line > lineOfPosition) {
             // Get previous token if the token is returned starts on new line
             // eg: let x =10; |--- cursor is here
             //     let y = 10; 
@@ -39,14 +39,21 @@ module ts.BreakpointResolver {
         return spanInNode(tokenAtLocation);
 
         function textSpan(startNode: Node, endNode?: Node) {
-            return createTextSpanFromBounds(startNode.getStart(), (endNode || startNode).getEnd());
+            const start = startNode.decorators ?
+                skipTrivia(sourceFile.text, startNode.decorators.end) :
+                startNode.getStart(sourceFile);
+            return createTextSpanFromBounds(start, (endNode || startNode).getEnd());
         }
 
         function spanInNodeIfStartsOnSameLine(node: Node, otherwiseOnNode?: Node): TextSpan {
-            if (node && lineOfPosition === sourceFile.getLineAndCharacterOfPosition(node.getStart()).line) {
+            if (node && lineOfPosition === sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line) {
                 return spanInNode(node);
             }
             return spanInNode(otherwiseOnNode);
+        }
+
+        function spanInNodeArray<T>(nodeArray: NodeArray<T>) {
+            return createTextSpanFromBounds(skipTrivia(sourceFile.text, nodeArray.pos), nodeArray.end);
         }
 
         function spanInPreviousNode(node: Node): TextSpan {
@@ -65,6 +72,11 @@ module ts.BreakpointResolver {
                         return spanInPreviousNode(node);
                     }
 
+                    if (node.parent.kind === SyntaxKind.Decorator) {
+                        // Set breakpoint on the decorator emit
+                        return spanInNode(node.parent);
+                    }
+
                     if (node.parent.kind === SyntaxKind.ForStatement) {
                         // For now lets set the span on this expression, fix it later
                         return textSpan(node);
@@ -75,7 +87,7 @@ module ts.BreakpointResolver {
                         return textSpan(node);
                     }
 
-                    if (node.parent.kind == SyntaxKind.ArrowFunction && (<FunctionLikeDeclaration>node.parent).body == node) {
+                    if (node.parent.kind === SyntaxKind.ArrowFunction && (<FunctionLikeDeclaration>node.parent).body === node) {
                         // If this is body of arrow function, it is allowed to have the breakpoint
                         return textSpan(node);
                     }
@@ -206,6 +218,9 @@ module ts.BreakpointResolver {
                     case SyntaxKind.WithStatement:
                         // span in statement
                         return spanInNode((<WithStatement>node).statement);
+
+                    case SyntaxKind.Decorator:
+                        return spanInNodeArray(node.parent.decorators);
 
                     // No breakpoint in interface, type alias
                     case SyntaxKind.InterfaceDeclaration:
@@ -446,7 +461,7 @@ module ts.BreakpointResolver {
                         // fall through.
 
                     case SyntaxKind.CatchClause:
-                        return spanInNode(lastOrUndefined((<Block>node.parent).statements));;
+                        return spanInNode(lastOrUndefined((<Block>node.parent).statements));
 
                     case SyntaxKind.CaseBlock:
                         // breakpoint in last statement of the last clause
@@ -493,9 +508,6 @@ module ts.BreakpointResolver {
                     default:
                         return spanInNode(node.parent);
                 }
-
-                // Default to parent node
-                return spanInNode(node.parent);
             }
 
             function spanInColonToken(node: Node): TextSpan {
